@@ -2,6 +2,8 @@
 Implementation of the paper: "Pith Estimation on Rough Log End images using Local Fourier Spectrum Analysis" by Rudolf Schraml and Andreas Uhl.
 http://dx.doi.org/10.2316/P.2013.797-012
 """
+import warnings
+warnings.filterwarnings("ignore")
 
 import numpy as np
 import cv2
@@ -15,7 +17,7 @@ from lib.image import resize_image_using_pil_lib, Color, Drawing, rgb2gray
 
 class SplitImageInBlock:
     def __init__(self, width_partition = 15, height_partition = 15, overlap=0.0, mask = None, img = None,
-                 output_dir=None):
+                 output_dir=None, debug=False):
         """
         Split image in l_blocks
         :param width_partition: image width divisions
@@ -36,6 +38,7 @@ class SplitImageInBlock:
         #block height
         self.split_height = int (height / height_partition)
         self.output_dir = output_dir
+        self.debug=debug
 
 
     @staticmethod
@@ -129,11 +132,13 @@ class SplitImageInBlock:
 
 
     def save_img_blocks(self):
-        blocks_dir = Path(self.output_dir) / "l_blocks"
-        blocks_dir.mkdir(parents=True, exist_ok=True)
+
         cv2.imwrite(f"{self.output_dir}/img.png", self.img)
         cv2.imwrite(f"{self.output_dir}/mask.png", self.mask)
-        [cv2.imwrite(f"{str(blocks_dir)}/block_nro_{idx}.png", block) for idx, block in enumerate(self.l_blocks)]
+        if self.debug:
+            blocks_dir = Path(self.output_dir) / "l_blocks"
+            blocks_dir.mkdir(parents=True, exist_ok=True)
+            [cv2.imwrite(f"{str(blocks_dir)}/block_nro_{idx}.png", block) for idx, block in enumerate(self.l_blocks)]
 
 
     def run(self):
@@ -225,6 +230,19 @@ class LocalOrientationEstimation:
             fs = fs * (fs > T)
         return fs
 
+    def compute_band_filtering(self, fs):
+        height, width = fs.shape
+        # Band-pass filter frequencies. Allowed frequencies are between 1/64 and 1/3 of the image height
+        band_pass_low_frequency = height / 64
+        band_pass_high_frequency = height / 3
+        center = (int(width / 2), int(height / 2))
+        radius = int(band_pass_high_frequency)
+        mask = np.zeros((height, width), np.uint8)
+        cv2.circle(mask, center, radius, 255, -1)
+        radius = int(band_pass_low_frequency)
+        cv2.circle(mask, center, radius, 0, -1)
+        return cv2.bitwise_and(fs, fs, mask=mask)
+
     def preprocess_fourier_spectrum(self, l_fs_blocks):
         """
         Preprocessing of fourier spectrum. Section 2.3.1 of paper.
@@ -232,6 +250,8 @@ class LocalOrientationEstimation:
         :return: list of preprocessed fourier spectrum magnitude of each block
         """
         # Band-pass filter. Paper do not mention the size of the band-pass filter
+        if len(l_fs_blocks) == 0:
+            return []
         height, width = l_fs_blocks[0].shape
         # Band-pass filter frequencies. Allowed frequencies are between 1/64 and 1/3 of the image height
         band_pass_low_frequency = height / 64
@@ -244,7 +264,7 @@ class LocalOrientationEstimation:
         cv2.circle(mask, center, radius, 0, -1)
 
         # Apply band-pass filter
-        l_pre_fs_blocks = [cv2.bitwise_and(blocks, blocks, mask=mask) for blocks in l_fs_blocks]
+        l_pre_fs_blocks = [self.compute_band_filtering(blocks) for blocks in l_fs_blocks]
         # Thresholding frequencies with high magnitude.
         l_pre_fs_blocks = [self.thresholding_frequencies_with_high_magnitude(blocks) for blocks in l_pre_fs_blocks]
 
@@ -573,12 +593,15 @@ class LocalOrientationEstimation:
         for idx, fs_block in enumerate(pre_fs_blocks):
             X, Y, _, height, width = self.get_data_points_from_fft(fs_block)
             # Compute PCA analysis using numpy
-            eigenvectors, eigenvalues = self.compute_pca_analysis(X, Y)
-            # extract line direction from principal components
-            u_p = eigenvectors[0] #first principal component
-            a = u_p[1]/u_p[0] if u_p[0] != 0 else np.inf
-            certainty = (eigenvalues[0] - eigenvalues[1] ) / eigenvalues[0] if eigenvalues[0] > 0 else 0
-
+            if X.shape[0]>0:
+                eigenvectors, eigenvalues = self.compute_pca_analysis(X, Y)
+                # extract line direction from principal components
+                u_p = eigenvectors[0] #first principal component
+                a = u_p[1]/u_p[0] if u_p[0] != 0 else np.inf
+                certainty = (eigenvalues[0] - eigenvalues[1] ) / eigenvalues[0] if eigenvalues[0] > 0 else 0
+            else:
+                a = 0
+                certainty = 0
             line = self.compute_line_given_coefficient(a, width, height, idx, certainty)
             l_lo.append(line)
 
@@ -824,10 +847,9 @@ class PithDetector:
         # 1.0 compute image regions
         block_splitter = SplitImageInBlock(img=self.img, mask=self.mask, output_dir=self.output_dir,
                         overlap=self.lo_overlap, width_partition = self.lo_width_partition,
-                                           height_partition = self.lo_height_partition)
+                        height_partition = self.lo_height_partition, debug=debug)
         block_splitter.run()
-        if debug:
-            block_splitter.save_img_blocks()
+        block_splitter.save_img_blocks()
         l_blocks = block_splitter.l_blocks
         l_coordinates = block_splitter.l_coordinates
 
@@ -853,7 +875,7 @@ class PithDetector:
     def find_peak(self, m_accumulation_space, sigma = 3):
 
         ################################################################################################################
-        ac_blur =  cv2.GaussianBlur(m_accumulation_space.astype(np.uint8), (sigma, sigma), 0)
+        ac_blur =  cv2.GaussianBlur(m_accumulation_space.astype(np.uint8), (sigma, sigma), 0) if sigma > 0 else m_accumulation_space
         # find max location
         max_val = ac_blur.max()
         yy, xx = np.where(ac_blur >= max_val)
@@ -909,10 +931,12 @@ class AccumulationSpace:
         if x is None or y is None or np.isnan(x) or np.isnan(y):
             return None
 
+        x = np.round(x).astype(int)
+        y = np.round(y).astype(int)
         if x < 0 or x >= self.img.shape[1] or y < 0 or y >= self.img.shape[0]:
             return None
 
-        intersection = (np.round(x).astype(int), np.round(y).astype(int))
+        intersection = (x, y)
 
         if self.debug:
             # 2.0 Draw intersection point
@@ -1012,7 +1036,7 @@ def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fine_windows
     # 4.0 save results
     convert_original_scale = lambda peak: (np.array(peak) * np.array([o_width/new_shape,o_height/new_shape])).tolist()
     data = {'coarse': convert_original_scale(peak_coarse), 'fine': convert_original_scale(peak_fine), 'exec_time(s)':tf-to}
-    print(f"{output_dir.name}: {data}")
+    #print(f"{output_dir.name}: {data}")
     df = pd.DataFrame(data)
     df.to_csv(str(output_dir / 'pith.csv'), index=False)
 
@@ -1027,7 +1051,7 @@ if __name__=="__main__":
     parser.add_argument('--output_dir', type=str, required=True, help='output directory')
 
     #method parameters
-    parser.add_argument('--new_shape', type=int, default=640, help='new shape')
+    parser.add_argument('--new_shape', type=int, default=1000, help='new shape')
     parser.add_argument('--fine_windows_size', type=int, default=4, help='fine windows size')
     parser.add_argument('--coarse_width_partition', type=int, default=15, help='coarse width partition')
     parser.add_argument('--coarse_height_partition', type=int, default=15, help='coarse height partition')
@@ -1040,7 +1064,7 @@ if __name__=="__main__":
     parser.add_argument('--fine_height_partition', type=int, default=20, help='fine height partition')
     parser.add_argument('--fine_overlap', type=float, default=0.2, help='fine overlap')
     parser.add_argument('--fine_lo_method', type=str, default='pca', help='fine lo method')
-    parser.add_argument('--fine_lo_certainty_threshold', type=float, default=0.7, help='fine lo certainty threshold')
+    parser.add_argument('--fine_lo_certainty_threshold', type=float, default=0.8, help='fine lo certainty threshold')
     parser.add_argument('--fine_peak_blur_sigma', type=int, default=3, help='fine peak blur sigma')
     parser.add_argument('--fine_acc_type', type=int, default=0, help='fine accumulation type')
     parser.add_argument('--debug', type=bool, default=False, help='debug')
