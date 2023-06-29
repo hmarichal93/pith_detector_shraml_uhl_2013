@@ -3,17 +3,19 @@ set -e
 
 # Read input parameters
 input=$1
-new_shape=$2
-th_low=$3
-th_high=$4
-hsize=$5
-wsize=$6
-BIN=$7
-HOME=$8
+output_dir=$2
+new_shape=$3
+width_partition=$3
+height_partition=$4
+block_overlap=$5
+fft_peak_th=$6
+lo_method=$7
+certainty_th=$8
+acc_type=$9
+peak_blur_sigma=${10}
 
 
 
 # Execute algorithm
-python $BIN/main.py --input $input --cx $Cx --cy $Cy --root $BIN --output_dir ./  --th_high $th_high --th_low $th_low \
-  --hsize $hsize --wsize $wsize --sigma $sigma --save_imgs 1
+python $BIN/main.py --input $input --output_dir $output_dir --new_shape $new_shape --width_partition $width_partition --height_partition $height_partition --block_overlap $block_overlap --fft_peak_th $fft_peak_th --lo_method $lo_method --certainty_th $certainty_th --acc_type $acc_type --peak_blur_sigma $peak_blur_sigma
 
