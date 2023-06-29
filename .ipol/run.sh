@@ -5,15 +5,15 @@ set -e
 input=$1
 output_dir=$2
 new_shape=$3
-width_partition=$3
-height_partition=$4
-block_overlap=$5
-fft_peak_th=$6
-lo_method=$7
-certainty_th=$8
-acc_type=$9
-peak_blur_sigma=${10}
-bin=${11}
+width_partition=$4
+height_partition=$5
+block_overlap=$6
+fft_peak_th=$7
+lo_method=$8
+certainty_th=$9
+acc_type=$10
+peak_blur_sigma=${11}
+bin=${12}
 
 echo "ACA estoy"
 
