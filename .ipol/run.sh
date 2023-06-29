@@ -15,7 +15,6 @@ acc_type=$10
 peak_blur_sigma=${11}
 bin=${12}
 
-echo "ACA estoy"
 
 # Execute algorithm
 python $bin/main.py --input $input --output_dir $output_dir --new_shape $new_shape --width_partition $width_partition --height_partition $height_partition --block_overlap $block_overlap --fft_peak_th $fft_peak_th --lo_method $lo_method --certainty_th $certainty_th --acc_type $acc_type --peak_blur_sigma $peak_blur_sigma
