@@ -13,9 +13,10 @@ lo_method=$7
 certainty_th=$8
 acc_type=$9
 peak_blur_sigma=${10}
+bin=${11}
 
 
 
 # Execute algorithm
-python $BIN/main.py --input $input --output_dir $output_dir --new_shape $new_shape --width_partition $width_partition --height_partition $height_partition --block_overlap $block_overlap --fft_peak_th $fft_peak_th --lo_method $lo_method --certainty_th $certainty_th --acc_type $acc_type --peak_blur_sigma $peak_blur_sigma
+python bin/main.py --input $input --output_dir $output_dir --new_shape $new_shape --width_partition $width_partition --height_partition $height_partition --block_overlap $block_overlap --fft_peak_th $fft_peak_th --lo_method $lo_method --certainty_th $certainty_th --acc_type $acc_type --peak_blur_sigma $peak_blur_sigma
 
