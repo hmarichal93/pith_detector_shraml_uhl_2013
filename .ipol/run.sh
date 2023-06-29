@@ -11,7 +11,7 @@ block_overlap=$6
 fft_peak_th=$7
 lo_method=$8
 certainty_th=$9
-acc_type=$10
+acc_type=${10}
 peak_blur_sigma=${11}
 bin=${12}
 
