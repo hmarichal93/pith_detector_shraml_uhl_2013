@@ -1006,7 +1006,7 @@ def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fft_peak_th=
     o_height, o_width = img.shape[:2]
     # 1.1 resize image
     img = resize_image_using_pil_lib(img, height_output=new_shape, width_output=new_shape)
-
+    cv2.imwrite(str(output_dir / 'resized.png'), img)
     # 2.0 segment image
     mask = np.where( img== 255, 0, 255).astype(np.uint8)
     mask = cv2.GaussianBlur(mask, (5, 5), 0).astype(np.uint8)
