@@ -152,7 +152,7 @@ class LocalOrientationEstimation:
     lsr = 1
     wlsr = 2
     pca = 3
-    def __init__(self, img, mask, l_blocks,l_coordinates, type, certainty_threshold = 0.7, output_dir=None,
+    def __init__(self, img, mask, l_blocks,l_coordinates, type, certainty_threshold = 0.7, fft_peak_th=0.6, output_dir=None,
                  debug = True):
         """
         Local Orientation Estimation. Section 2 of the paper
@@ -174,6 +174,7 @@ class LocalOrientationEstimation:
         self.debug = debug
         self.type = type
         self.certainty_threshold = certainty_threshold
+        self.fft_peak_th = fft_peak_th
 
     def compute_fourier_spectrum(self, l_blocks):
         """
@@ -266,7 +267,7 @@ class LocalOrientationEstimation:
         # Apply band-pass filter
         l_pre_fs_blocks = [self.compute_band_filtering(blocks) for blocks in l_fs_blocks]
         # Thresholding frequencies with high magnitude.
-        l_pre_fs_blocks = [self.thresholding_frequencies_with_high_magnitude(blocks) for blocks in l_pre_fs_blocks]
+        l_pre_fs_blocks = [self.thresholding_frequencies_with_high_magnitude(blocks, self.fft_peak_th) for blocks in l_pre_fs_blocks]
 
         return l_pre_fs_blocks
 
@@ -809,7 +810,7 @@ class Line:
         return extended_line
 
 class PithDetector:
-    def __init__(self, img=None, mask=None, width_partition=15, height_partition = 15, overlap = 0.35 ,output_dir=None,
+    def __init__(self, img=None, mask=None,fft_peak_th=0.6, width_partition=15, height_partition = 15, overlap = 0.35 ,output_dir=None,
                  debug=False, lo_method= LocalOrientationEstimation.pca, lo_certainty_threshold=0.5, peak_blur_sigma=5,
                  acc_type=0):
         """
@@ -830,6 +831,7 @@ class PithDetector:
         self.mask = mask
         self.output_dir = output_dir
         Path(self.output_dir).mkdir(exist_ok=True, parents=True)
+        self.lo_fft_peak_th = fft_peak_th
         self.lo_width_partition = width_partition
         self.lo_height_partition = height_partition
         self.lo_overlap = overlap
@@ -859,7 +861,7 @@ class PithDetector:
             lo_dir.mkdir(exist_ok=True, parents=True)
         lo = LocalOrientationEstimation(img=self.img, mask=self.mask, l_blocks=l_blocks, l_coordinates=l_coordinates,
                                         output_dir=str(lo_dir), debug=debug, type = self.lo_method,
-                                        certainty_threshold=self.lo_certainty_threshold)
+                                        certainty_threshold=self.lo_certainty_threshold, fft_peak_th = self.lo_fft_peak_th )
         l_lo = lo.run()
 
         return l_lo # list of local orientation objects
@@ -993,12 +995,9 @@ class AccumulationSpace:
             self.debug_accumulation_space(accumulation_space)
 
         return accumulation_space
-def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fine_windows_size = 8, coarse_width_partition=10,
-                coarse_height_partition=10, coarse_overlap=0.25, coarse_lo_method = LocalOrientationEstimation.pca,
-                coarse_lo_certainty_threshold = 0.7, coarse_peak_blur_sigma = 5, coarse_acc_type=0,
-                fine_width_partition=20, fine_height_partition=20, fine_overlap=0.25,
-                fine_lo_method=LocalOrientationEstimation.pca, fine_lo_certainty_threshold=0.5,
-                fine_peak_blur_sigma=3, fine_acc_type=0, debug=True):
+def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fft_peak_th=0.8, width_partition=10,
+                height_partition=10, block_overlap=0.25, lo_method = LocalOrientationEstimation.pca,
+                certainty_th = 0.7, peak_blur_sigma = 5, acc_type=0, debug=True):
     to = time.time()
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -1014,33 +1013,22 @@ def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fine_windows
 
     # 3.0 pith detector
     # 3.1 coarse pith detector
-    pith_detector = PithDetector(img=img, mask=mask, output_dir=str(output_dir / 'coarse_pith'),
-                    width_partition=coarse_width_partition, height_partition=coarse_height_partition,
-                    overlap=coarse_overlap, lo_method = coarse_lo_method,
-                    lo_certainty_threshold= coarse_lo_certainty_threshold, peak_blur_sigma=coarse_peak_blur_sigma,
-                    acc_type=coarse_acc_type,debug=debug)
+    pith_detector = PithDetector(img=img, mask=mask, output_dir=str(output_dir), fft_peak_th=fft_peak_th,
+                    width_partition=width_partition, height_partition=height_partition,
+                    overlap=block_overlap, lo_method = lo_method,
+                    lo_certainty_threshold= certainty_th, peak_blur_sigma=peak_blur_sigma,
+                    acc_type=acc_type,debug=debug)
     peak_coarse = pith_detector.run()
-    # 3.2 fine pith detector
-    # 3.2.1 generate a circular mask around peak position using opencv
-    xc,yc = peak_coarse
-    radius = new_shape // fine_windows_size
-    mask = cv2.circle(np.zeros_like(img), (xc, yc), radius, (255, 255, 255), -1)
-    # 3.2.2 fine pith detector
-    pith_detector = PithDetector(img=img, mask=mask, output_dir=str(output_dir / 'fine_pith'),
-                                 width_partition=fine_width_partition, height_partition=fine_height_partition,
-                                 overlap=fine_overlap, lo_method=fine_lo_method,
-                                 lo_certainty_threshold=fine_lo_certainty_threshold,
-                                 peak_blur_sigma=fine_peak_blur_sigma, acc_type=fine_acc_type, debug=debug)
-    peak_fine = pith_detector.run()
+
     tf = time.time()
     # 4.0 save results
     convert_original_scale = lambda peak: (np.array(peak) * np.array([o_width/new_shape,o_height/new_shape])).tolist()
-    data = {'coarse': convert_original_scale(peak_coarse), 'fine': convert_original_scale(peak_fine), 'exec_time(s)':tf-to}
+    data = {'coarse': convert_original_scale(peak_coarse), 'exec_time(s)':tf-to}
     #print(f"{output_dir.name}: {data}")
     df = pd.DataFrame(data)
     df.to_csv(str(output_dir / 'pith.csv'), index=False)
 
-    return peak_fine
+    return peak_coarse
 
 
 import argparse
@@ -1052,34 +1040,23 @@ if __name__=="__main__":
 
     #method parameters
     parser.add_argument('--new_shape', type=int, default=1000, help='new shape')
-    parser.add_argument('--fine_windows_size', type=int, default=4, help='fine windows size')
-    parser.add_argument('--coarse_width_partition', type=int, default=15, help='coarse width partition')
-    parser.add_argument('--coarse_height_partition', type=int, default=15, help='coarse height partition')
-    parser.add_argument('--coarse_overlap', type=float, default=0.25, help='coarse overlap')
-    parser.add_argument('--coarse_lo_method', type=str, default='pca', help='coarse lo method')
-    parser.add_argument('--coarse_lo_certainty_threshold', type=float, default=0.7, help='coarse lo certainty threshold')
-    parser.add_argument('--coarse_peak_blur_sigma', type=int, default=3, help='coarse peak blur sigma')
-    parser.add_argument('--coarse_acc_type', type=int, default=0, help='coarse accumulation type')
-    parser.add_argument('--fine_width_partition', type=int, default=20, help='fine width partition')
-    parser.add_argument('--fine_height_partition', type=int, default=20, help='fine height partition')
-    parser.add_argument('--fine_overlap', type=float, default=0.2, help='fine overlap')
-    parser.add_argument('--fine_lo_method', type=str, default='pca', help='fine lo method')
-    parser.add_argument('--fine_lo_certainty_threshold', type=float, default=0.8, help='fine lo certainty threshold')
-    parser.add_argument('--fine_peak_blur_sigma', type=int, default=3, help='fine peak blur sigma')
-    parser.add_argument('--fine_acc_type', type=int, default=0, help='fine accumulation type')
+    parser.add_argument('--fft_peak_th', type=float, default=0.8, help='fourier transform peak threshold')
+    parser.add_argument('--width_partition', type=int, default=15, help='width partition')
+    parser.add_argument('--height_partition', type=int, default=15, help='height partition')
+    parser.add_argument('--block_overlap', type=float, default=0.25, help='block overlapping')
+    parser.add_argument('--lo_method', type=str, default='pca', help='lo method')
+    parser.add_argument('--certainty_th', type=float, default=0.7, help='lo certainty threshold')
+    parser.add_argument('--peak_blur_sigma', type=int, default=3, help='peak blur sigma')
+    parser.add_argument('--acc_type', type=int, default=0, help='accumulation type')
+
     parser.add_argument('--debug', type=bool, default=False, help='debug')
     args = parser.parse_args()
 
-    coarse_lo_method = LocalOrientationEstimation.lo_methods(args.coarse_lo_method)
-    fine_lo_method = LocalOrientationEstimation.lo_methods(args.fine_lo_method)
-    params = dict(filename=args.filename, output_dir=args.output_dir,new_shape=args.new_shape, fine_windows_size=args.fine_windows_size,
-                  coarse_width_partition=args.coarse_width_partition, coarse_height_partition=args.coarse_height_partition,
-                  coarse_overlap=args.coarse_overlap, coarse_lo_method=coarse_lo_method,
-                  coarse_lo_certainty_threshold=args.coarse_lo_certainty_threshold,
-                  coarse_peak_blur_sigma=args.coarse_peak_blur_sigma, coarse_acc_type=args.coarse_acc_type,fine_width_partition=args.fine_width_partition,
-                  fine_height_partition=args.fine_height_partition, fine_overlap=args.fine_overlap,
-                  fine_lo_method=fine_lo_method, fine_lo_certainty_threshold=args.fine_lo_certainty_threshold,
-                  fine_peak_blur_sigma=args.fine_peak_blur_sigma,fine_acc_type=args.fine_acc_type, debug=args.debug)
-
+    lo_method = LocalOrientationEstimation.lo_methods(args.lo_method)
+    params = dict(filename=args.filename, output_dir=args.output_dir,new_shape=args.new_shape,fft_peak_th=args.fft_peak_th,
+                  width_partition=args.width_partition, height_partition=args.height_partition,
+                  block_overlap=args.block_overlap, lo_method=lo_method,
+                  certainty_th=args.certainty_th,
+                  peak_blur_sigma=args.peak_blur_sigma, acc_type=args.acc_type,debug=args.debug)
     shraml_uhl_peak_detector(**params)
 
