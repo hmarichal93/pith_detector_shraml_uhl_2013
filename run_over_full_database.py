@@ -67,6 +67,7 @@ def optimization():
      accumulator_type = [0, 1]
      sigma_peak_blur = [3]
      counter = 0
+     min_score = np.inf
      for fine_windows_size in l_fine_windows_size:#3
          for coarse_width_partition in l_coarse_width_partition:#2
              coarse_height_partition = coarse_width_partition
@@ -86,13 +87,27 @@ def optimization():
                                      output_dir = f'/data/maestria/resultados/centro/shraml_uhl_2013_optimization/{counter}'
                                      Path(output_dir).mkdir(parents=True, exist_ok=True)
                                      results_file= f'{output_dir}/results.csv'
-                                     if Path(results_file).exists():
-                                         counter += 1
-                                         continue
+                                     #if Path(results_file).exists():
+                                     #    counter += 1
+                                     #    continue
 
-                                     write_json(params, f'{output_dir}/params.json')
-                                     run_method_over_dataset(output_dir, params)
+                                     #write_json(params, f'{output_dir}/params.json')
+                                     #run_method_over_dataset(output_dir, params)
+                                     df = pd.read_csv(results_file)
+                                     score = df['diff_c'].mean()
+                                     if score < min_score:
+                                         min_score = score
+                                         print(f"New best score: Coarse Config {counter} {min_score} ")
+
+                                     score = df['diff_f'].mean()
+                                     if score < min_score:
+                                         min_score = score
+                                         print(f"New best score: Fine Config {counter} {min_score} ")
+
                                      counter += 1
+
+     print(f"Best score: {min_score} ")
+     return
 
 if __name__=="__main__":
     # parser = argparse.ArgumentParser(description='Pith detector')
