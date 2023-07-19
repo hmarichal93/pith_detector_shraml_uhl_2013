@@ -59,7 +59,7 @@ import argparse
 
 
 def optimization():
-     l_windows_size = [10, 30, 50, 100]
+     l_windows_size = [20, 30, 50, 100]
      l_overlap = [0, 0.2, 0.4]
      l_lo_certainty = [ 0.7, 0.85, 0.95]
      l_lo_method = [LocalOrientationEstimation.peak, LocalOrientationEstimation.pca]
