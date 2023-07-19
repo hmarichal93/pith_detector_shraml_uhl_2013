@@ -20,7 +20,7 @@ class SplitImageInBlock:
                  output_dir=None, debug=False):
         """
         Split image in l_blocks
-        :param width_partition: image width divisions
+        :param width_partition: block width size (px)
         :param height_partition: image height divisions
         :param overlap: percentage of overlap between l_blocks. 0.0 means no overlap, 1.0 means 100% overlap
         :param mask: Disk mask to apply to image. If mask is not None, then only extract l_blocks that do not contain background.
@@ -34,9 +34,9 @@ class SplitImageInBlock:
         self.img = img
         height, width, _ = self.img.shape
         #block width
-        self.split_width = int(width_partition)
+        self.split_width = int(width_partition) #int( width / width_partition)
         #block height
-        self.split_height = int (height_partition)
+        self.split_height = int(height_partition) #int (height / height_partition)
         self.output_dir = output_dir
         self.debug=debug
 
@@ -817,8 +817,8 @@ class PithDetector:
         Implementation of the pith detection algorithm described in Reference Paper
         :param img: input image
         :param mask: input background mask
-        :param width_partition: number of partitions in the width direction in order to get patches
-        :param height_partition: number of partitions in the height direction in order to get patches
+        :param width_partition: Pixel partition size in the width direction in order to get patches
+        :param height_partition: Pixel partition size in the height direction in order to get patches
         :param overlap: overlap between patches
         :param output_dir: output directory
         :param debug: debug flag
@@ -998,6 +998,7 @@ class AccumulationSpace:
 def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fft_peak_th=0.8, width_partition=10,
                 height_partition=10, block_overlap=0.25, lo_method = LocalOrientationEstimation.pca,
                 certainty_th = 0.7, peak_blur_sigma = 5, acc_type=0, debug=True):
+
     to = time.time()
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -1041,13 +1042,13 @@ if __name__=="__main__":
     #method parameters
     parser.add_argument('--new_shape', type=int, default=1000, help='new shape')
     parser.add_argument('--fft_peak_th', type=float, default=0.8, help='fourier transform peak threshold')
-    parser.add_argument('--width_partition', type=int, default=15, help='width partition')
-    parser.add_argument('--height_partition', type=int, default=15, help='height partition')
-    parser.add_argument('--block_overlap', type=float, default=0.25, help='block overlapping')
+    parser.add_argument('--width_partition', type=int, default=100, help='width partition size (px)')
+    parser.add_argument('--height_partition', type=int, default=100, help='height partition size (px)')
+    parser.add_argument('--block_overlap', type=float, default=0.2, help='block overlapping')
     parser.add_argument('--lo_method', type=str, default='pca', help='lo method')
-    parser.add_argument('--certainty_th', type=float, default=0.7, help='lo certainty threshold')
+    parser.add_argument('--certainty_th', type=float, default=0.9, help='lo certainty threshold')
     parser.add_argument('--peak_blur_sigma', type=int, default=3, help='peak blur sigma')
-    parser.add_argument('--acc_type', type=int, default=0, help='accumulation type')
+    parser.add_argument('--acc_type', type=int, default=1, help='accumulation type')
 
     parser.add_argument('--debug', type=bool, default=False, help='debug')
     args = parser.parse_args()
@@ -1059,3 +1060,4 @@ if __name__=="__main__":
                   certainty_th=args.certainty_th,
                   peak_blur_sigma=args.peak_blur_sigma, acc_type=args.acc_type,debug=args.debug)
     shraml_uhl_peak_detector(**params)
+
