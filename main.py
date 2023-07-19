@@ -34,9 +34,9 @@ class SplitImageInBlock:
         self.img = img
         height, width, _ = self.img.shape
         #block width
-        self.split_width = int( width / width_partition)
+        self.split_width = int(width_partition)
         #block height
-        self.split_height = int (height / height_partition)
+        self.split_height = int (height_partition)
         self.output_dir = output_dir
         self.debug=debug
 

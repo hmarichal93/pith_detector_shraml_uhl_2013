@@ -28,14 +28,13 @@ def write_json(dict_to_save: dict, filepath: str) -> None:
         json.dump(dict_to_save, f)
 
 def run_method_over_dataset(output_dir=None, params=None):
-    root_imageset = '/data/maestria/datasets/cross-section/UruDendro_2019'
+    root_imageset = '/data/maestria/datasets/UruDendro_2019'
     metadata_filename = f'{root_imageset}/dataset_ipol.csv'
     root_images_dir = f'{root_imageset}/images/segmented'
     metadata = pd.read_csv(metadata_filename)
     data = pd.DataFrame(columns=['block','c_y','c_x', 'f_y', 'f_x', 'gt_y', 'gt_x', 'diff_f', 'diff_c', 'exec_time(s)'])
     distance = lambda x,y: np.linalg.norm(x - y)
     for idx, row in metadata.iterrows():
-
         output_img_dir = Path(output_dir) / row.Imagen
         output_img_dir.mkdir(parents=True, exist_ok=True)
         img_filename = f"{root_images_dir}/{row.Imagen}.png"
@@ -45,7 +44,7 @@ def run_method_over_dataset(output_dir=None, params=None):
         centro_gt = np.array([row['cy'], row['cx']])
         centro_dt_c = df.coarse.values
         diff_c = distance(centro_gt, centro_dt_c)
-        centro_dt_f = df.fine.values
+        centro_dt_f = df.coarse.values
         diff_f = distance(centro_gt, centro_dt_f)
         row = {'block': row.Imagen,'c_y': centro_dt_c[1], 'c_x': centro_dt_c[0], 'f_y': centro_dt_f[1], 'f_x': centro_dt_f[0], 'gt_y': centro_gt[1],
                'gt_x': centro_gt[0], 'diff_f': diff_f , 'diff_c': diff_c, 'exec_time(s)': df['exec_time(s)'].values[0]}
@@ -60,51 +59,40 @@ import argparse
 
 
 def optimization():
-     l_fine_windows_size = [4,6,8]
-     l_coarse_width_partition = [10,20]
-     l_overlap = [0, 0.25, 0.5]
-     l_coarse_lo_certainty = [ 0.6, 0.75, 0.9]
-     accumulator_type = [0, 1]
-     sigma_peak_blur = [3]
+     l_windows_size = [10, 30, 50, 100]
+     l_overlap = [0, 0.2, 0.4]
+     l_lo_certainty = [ 0.7, 0.85, 0.95]
+     l_lo_method = [LocalOrientationEstimation.peak, LocalOrientationEstimation.pca]
      counter = 0
      min_score = np.inf
-     for fine_windows_size in l_fine_windows_size:#3
-         for coarse_width_partition in l_coarse_width_partition:#2
-             coarse_height_partition = coarse_width_partition
-             for coarse_lo_certainty_threshold in l_coarse_lo_certainty:#3
-                 for fine_lo_certainty_threshold in l_coarse_lo_certainty:#3
-                     for fine_width_partition in l_coarse_width_partition:#2
-                         fine_height_partition = fine_width_partition
-                         for overlap in l_overlap:#3
-                             for acc_type in accumulator_type:#2
-                                 for sigma in sigma_peak_blur:#1
-                                     params = dict(fine_windows_size = fine_windows_size,coarse_width_partition = coarse_width_partition,
-                                        coarse_height_partition = coarse_height_partition, coarse_overlap = overlap, coarse_acc_type=acc_type,
-                                        fine_overlap = overlap, coarse_lo_certainty_threshold=coarse_lo_certainty_threshold,
-                                        coarse_peak_blur_sigma=sigma, fine_lo_certainty_threshold=fine_lo_certainty_threshold,
-                                        fine_width_partition=fine_width_partition, fine_height_partition=fine_height_partition,
-                                        fine_acc_type=acc_type, fine_peak_blur_sigma=sigma, debug=False)
-                                     output_dir = f'/data/maestria/resultados/centro/shraml_uhl_2013_optimization/{counter}'
-                                     Path(output_dir).mkdir(parents=True, exist_ok=True)
-                                     results_file= f'{output_dir}/results.csv'
-                                     #if Path(results_file).exists():
-                                     #    counter += 1
-                                     #    continue
+     for windows_size in l_windows_size:
+         for lo_certainty_threshold in l_lo_certainty:
+             for overlap in l_overlap:
+                 for lo_method in l_lo_method:
+                     params = dict( width_partition = windows_size, height_partition = windows_size, block_overlap = overlap,
+                            lo_method = lo_method, certainty_th = lo_certainty_threshold, new_shape = 1000,
+                            fft_peak_th = 0.8, peak_blur_sigma = 3, acc_type = 1, debug=False)
+                     output_dir = f'/data/maestria/resultados/centro/shraml_uhl_2013_optimization_2/{counter}'
+                     Path(output_dir).mkdir(parents=True, exist_ok=True)
+                     results_file= f'{output_dir}/results.csv'
+                     if Path(results_file).exists():
+                         counter += 1
+                         continue
 
-                                     #write_json(params, f'{output_dir}/params.json')
-                                     #run_method_over_dataset(output_dir, params)
-                                     df = pd.read_csv(results_file)
-                                     score = df['diff_c'].mean()
-                                     if score < min_score:
-                                         min_score = score
-                                         print(f"New best score: Coarse Config {counter} {min_score} ")
+                     write_json(params, f'{output_dir}/params.json')
+                     run_method_over_dataset(output_dir, params)
+                     df = pd.read_csv(results_file)
+                     score = df['diff_c'].mean()
+                     if score < min_score:
+                         min_score = score
+                         print(f"New best score: Coarse Config {counter} {min_score} ")
 
-                                     score = df['diff_f'].mean()
-                                     if score < min_score:
-                                         min_score = score
-                                         print(f"New best score: Fine Config {counter} {min_score} ")
+                     score = df['diff_f'].mean()
+                     if score < min_score:
+                         min_score = score
+                         print(f"New best score: Fine Config {counter} {min_score} ")
 
-                                     counter += 1
+                     counter += 1
 
      print(f"Best score: {min_score} ")
      return
