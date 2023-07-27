@@ -994,8 +994,8 @@ class AccumulationSpace:
             self.debug_accumulation_space(accumulation_space)
 
         return accumulation_space
-def shraml_uhl_peak_detector(filename, output_dir, new_shape=640, fft_peak_th=0.8, width_partition=10,
-                             height_partition=10, block_overlap=0.25, lo_method=LocalOrientationEstimation.pca,
+def shraml_uhl_peak_detector(filename, output_dir, new_shape=640, fft_peak_th=0.8, block_width_size=10,
+                             block_height_size=10, block_overlap=0.25, lo_method=LocalOrientationEstimation.pca,
                              lo_certainty_th=0.7, peak_blur_sigma=5, acc_type=0, debug=True):
 
     to = time.time()
@@ -1014,7 +1014,7 @@ def shraml_uhl_peak_detector(filename, output_dir, new_shape=640, fft_peak_th=0.
     # 3.0 pith detector
     # 3.1 coarse pith detector
     pith_detector = PithDetector(img_in=img_in, mask=mask, block_overlap=block_overlap,
-                                 block_width_size=width_partition, block_height_size=height_partition,
+                                 block_width_size=block_width_size, block_height_size=block_height_size,
                                  fft_peak_th=fft_peak_th, lo_method=lo_method, lo_certainty_th=lo_certainty_th,
                                  acc_type=acc_type, peak_blur_sigma=peak_blur_sigma, debug=debug,
                                  output_dir=str(output_dir))
@@ -1041,8 +1041,8 @@ if __name__=="__main__":
     #method parameters
     parser.add_argument('--new_shape', type=int, default=1000, help='new shape')
     parser.add_argument('--fft_peak_th', type=float, default=0.8, help='fourier transform peak threshold')
-    parser.add_argument('--width_partition', type=int, default=100, help='width partition size (px)')
-    parser.add_argument('--height_partition', type=int, default=100, help='height partition size (px)')
+    parser.add_argument('--block_width_size', type=int, default=100, help='width partition size (px)')
+    parser.add_argument('--block_height_size', type=int, default=100, help='height partition size (px)')
     parser.add_argument('--block_overlap', type=float, default=0.2, help='block overlapping')
     parser.add_argument('--lo_method', type=str, default='pca', help='lo method')
     parser.add_argument('--lo_certainty_th', type=float, default=0.9, help='lo certainty threshold')
@@ -1054,8 +1054,8 @@ if __name__=="__main__":
 
     lo_method = LocalOrientationEstimation.lo_methods(args.lo_method)
     params = dict(filename=args.filename, output_dir=args.output_dir, new_shape=args.new_shape,
-                  fft_peak_th=args.fft_peak_th, width_partition=args.width_partition,
-                  height_partition=args.height_partition, block_overlap=args.block_overlap, lo_method=lo_method,
+                  fft_peak_th=args.fft_peak_th, block_width_size=args.block_width_size,
+                  block_height_size=args.block_height_size, block_overlap=args.block_overlap, lo_method=lo_method,
                   lo_certainty_th=args.lo_certainty_th, peak_blur_sigma=args.peak_blur_sigma,
                   acc_type=args.acc_type,debug=args.debug)
     shraml_uhl_peak_detector(**params)
