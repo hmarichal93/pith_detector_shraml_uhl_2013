@@ -16,27 +16,27 @@ from sklearn.decomposition import PCA
 from lib.image import resize_image_using_pil_lib, Color, Drawing, rgb2gray
 
 class SplitImageInBlock:
-    def __init__(self, width_partition = 15, height_partition = 15, overlap=0.0, mask = None, img = None,
+    def __init__(self, block_width_size=15, block_height_size=15, block_overlap=0.0, mask=None, img=None,
                  output_dir=None, debug=False):
         """
         Split image in l_blocks
-        :param width_partition: block width size (px)
-        :param height_partition: image height divisions
-        :param overlap: percentage of overlap between l_blocks. 0.0 means no overlap, 1.0 means 100% overlap
+        :param block_width_size: block width size (px)
+        :param block_height_size:  block width size (px)
+        :param block_overlap: percentage of overlap between l_blocks. 0.0 means no overlap, 1.0 means 100% overlap
         :param mask: Disk mask to apply to image. If mask is not None, then only extract l_blocks that do not contain background.
         :param img: disk image
         :param output_dir: debugging output directory
         """
         #seed for reproducibility
         np.random.seed(0)
-        self.overlap = overlap
+        self.overlap = block_overlap
         self.mask = mask
         self.img = img
         height, width, _ = self.img.shape
         #block width
-        self.split_width = int(width_partition) #int( width / width_partition)
+        self.split_width = int(block_width_size) #int( width / width_partition)
         #block height
-        self.split_height = int(height_partition) #int (height / height_partition)
+        self.split_height = int(block_height_size) #int (height / height_partition)
         self.output_dir = output_dir
         self.debug=debug
 
@@ -132,7 +132,6 @@ class SplitImageInBlock:
 
 
     def save_img_blocks(self):
-
         cv2.imwrite(f"{self.output_dir}/img.png", self.img)
         cv2.imwrite(f"{self.output_dir}/mask.png", self.mask)
         if self.debug:
@@ -810,34 +809,34 @@ class Line:
         return extended_line
 
 class PithDetector:
-    def __init__(self, img=None, mask=None,fft_peak_th=0.6, width_partition=15, height_partition = 15, overlap = 0.35 ,output_dir=None,
-                 debug=False, lo_method= LocalOrientationEstimation.pca, lo_certainty_threshold=0.5, peak_blur_sigma=5,
-                 acc_type=0):
+    def __init__(self, img_in=None, mask=None, block_overlap=0.35, block_width_size=15, block_height_size=15,
+                 fft_peak_th=0.6, lo_method=LocalOrientationEstimation.pca, lo_certainty_th=0.5, acc_type=0,
+                 peak_blur_sigma=5, debug=False, output_dir=None):
         """
         Implementation of the pith detection algorithm described in Reference Paper
-        :param img: input image
+        :param img_in: input image
         :param mask: input background mask
-        :param width_partition: Pixel partition size in the width direction in order to get patches
-        :param height_partition: Pixel partition size in the height direction in order to get patches
-        :param overlap: overlap between patches
+        :param block_width_size: Pixel partition size in the width direction in order to get patches
+        :param block_height_size: Pixel partition size in the height direction in order to get patches
+        :param block_overlap: overlap between patches
         :param output_dir: output directory
         :param debug: debug flag
         :param lo_method: method to use for local orientation estimation
-        :param lo_certainty_threshold: threshold for local orientation estimation
+        :param lo_certainty_th: threshold for local orientation estimation
         :param acc_type: type of accumulator to use
         :param peak_blur_sigma: sigma for peak blurring
         """
-        self.img = img
+        self.img = img_in
         self.mask = mask
         self.output_dir = output_dir
         Path(self.output_dir).mkdir(exist_ok=True, parents=True)
         self.lo_fft_peak_th = fft_peak_th
-        self.lo_width_partition = width_partition
-        self.lo_height_partition = height_partition
-        self.lo_overlap = overlap
+        self.lo_width_partition = block_width_size
+        self.lo_height_partition = block_height_size
+        self.lo_overlap = block_overlap
         self.debug = debug
         self.lo_method = lo_method
-        self.lo_certainty_threshold = lo_certainty_threshold
+        self.lo_certainty_threshold = lo_certainty_th
         self.acc_type = acc_type
         self.peak_blur_sigma = peak_blur_sigma
     def local_orientation_estimation(self, debug=True):
@@ -847,9 +846,9 @@ class PithDetector:
         :return:
         """
         # 1.0 compute image regions
-        block_splitter = SplitImageInBlock(img=self.img, mask=self.mask, output_dir=self.output_dir,
-                        overlap=self.lo_overlap, width_partition = self.lo_width_partition,
-                        height_partition = self.lo_height_partition, debug=debug)
+        block_splitter = SplitImageInBlock(block_width_size=self.lo_width_partition,
+                                           block_height_size=self.lo_height_partition, block_overlap=self.lo_overlap,
+                                           mask=self.mask, img=self.img, output_dir=self.output_dir, debug=debug)
         block_splitter.run()
         block_splitter.save_img_blocks()
         l_blocks = block_splitter.l_blocks
@@ -865,12 +864,12 @@ class PithDetector:
         l_lo = lo.run()
 
         return l_lo # list of local orientation objects
-    def accumulation_space(self, l_lo, debug=True):
+    def accumulation_space(self, l_lo, acc_type, debug=True):
         # 3.0 compute accumulation space
         as_dir = Path(self.output_dir) / 'accumulation_space'
         if debug:
             as_dir.mkdir(exist_ok=True, parents=True)
-        as_obj = AccumulationSpace(l_lo=l_lo, output_dir=str(as_dir), img = self.img, mask=self.mask, type=self.acc_type, debug=debug)
+        as_obj = AccumulationSpace(l_lo=l_lo, output_dir=str(as_dir), img = self.img, mask=self.mask, type=acc_type, debug=debug)
 
         return as_obj.run()
 
@@ -894,7 +893,7 @@ class PithDetector:
     def run(self):
         """Implementations of Block Area Selection - BAS algorithm described in Reference Paper"""
         l_lo = self.local_orientation_estimation(debug=self.debug)
-        m_accumulation_space = self.accumulation_space(l_lo, debug=self.debug)
+        m_accumulation_space = self.accumulation_space(l_lo, self.acc_type, debug=self.debug)
         peak = self.find_peak(m_accumulation_space, self.peak_blur_sigma)
 
         return peak
@@ -995,30 +994,30 @@ class AccumulationSpace:
             self.debug_accumulation_space(accumulation_space)
 
         return accumulation_space
-def shraml_uhl_peak_detector(filename, output_dir, new_shape = 640, fft_peak_th=0.8, width_partition=10,
-                height_partition=10, block_overlap=0.25, lo_method = LocalOrientationEstimation.pca,
-                certainty_th = 0.7, peak_blur_sigma = 5, acc_type=0, debug=True):
+def shraml_uhl_peak_detector(filename, output_dir, new_shape=640, fft_peak_th=0.8, width_partition=10,
+                             height_partition=10, block_overlap=0.25, lo_method=LocalOrientationEstimation.pca,
+                             lo_certainty_th=0.7, peak_blur_sigma=5, acc_type=0, debug=True):
 
     to = time.time()
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
     # 1.0 load image
-    img = cv2.imread(filename)
-    o_height, o_width = img.shape[:2]
+    img_in = cv2.imread(filename)
+    o_height, o_width = img_in.shape[:2]
     # 1.1 resize image
-    img = resize_image_using_pil_lib(img, height_output=new_shape, width_output=new_shape)
-    cv2.imwrite(str(output_dir / 'resized.png'), img)
+    img_in = resize_image_using_pil_lib(img_in, height_output=new_shape, width_output=new_shape)
+    cv2.imwrite(str(output_dir / 'resized.png'), img_in)
     # 2.0 segment image
-    mask = np.where( img== 255, 0, 255).astype(np.uint8)
+    mask = np.where( img_in== 255, 0, 255).astype(np.uint8)
     mask = cv2.GaussianBlur(mask, (5, 5), 0).astype(np.uint8)
 
     # 3.0 pith detector
     # 3.1 coarse pith detector
-    pith_detector = PithDetector(img=img, mask=mask, output_dir=str(output_dir), fft_peak_th=fft_peak_th,
-                    width_partition=width_partition, height_partition=height_partition,
-                    overlap=block_overlap, lo_method = lo_method,
-                    lo_certainty_threshold= certainty_th, peak_blur_sigma=peak_blur_sigma,
-                    acc_type=acc_type,debug=debug)
+    pith_detector = PithDetector(img_in=img_in, mask=mask, block_overlap=block_overlap,
+                                 block_width_size=width_partition, block_height_size=height_partition,
+                                 fft_peak_th=fft_peak_th, lo_method=lo_method, lo_certainty_th=lo_certainty_th,
+                                 acc_type=acc_type, peak_blur_sigma=peak_blur_sigma, debug=debug,
+                                 output_dir=str(output_dir))
     peak_coarse = pith_detector.run()
 
     tf = time.time()
@@ -1046,7 +1045,7 @@ if __name__=="__main__":
     parser.add_argument('--height_partition', type=int, default=100, help='height partition size (px)')
     parser.add_argument('--block_overlap', type=float, default=0.2, help='block overlapping')
     parser.add_argument('--lo_method', type=str, default='pca', help='lo method')
-    parser.add_argument('--certainty_th', type=float, default=0.9, help='lo certainty threshold')
+    parser.add_argument('--lo_certainty_th', type=float, default=0.9, help='lo certainty threshold')
     parser.add_argument('--peak_blur_sigma', type=int, default=3, help='peak blur sigma')
     parser.add_argument('--acc_type', type=int, default=1, help='accumulation type')
 
@@ -1054,10 +1053,10 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     lo_method = LocalOrientationEstimation.lo_methods(args.lo_method)
-    params = dict(filename=args.filename, output_dir=args.output_dir,new_shape=args.new_shape,fft_peak_th=args.fft_peak_th,
-                  width_partition=args.width_partition, height_partition=args.height_partition,
-                  block_overlap=args.block_overlap, lo_method=lo_method,
-                  certainty_th=args.certainty_th,
-                  peak_blur_sigma=args.peak_blur_sigma, acc_type=args.acc_type,debug=args.debug)
+    params = dict(filename=args.filename, output_dir=args.output_dir, new_shape=args.new_shape,
+                  fft_peak_th=args.fft_peak_th, width_partition=args.width_partition,
+                  height_partition=args.height_partition, block_overlap=args.block_overlap, lo_method=lo_method,
+                  lo_certainty_th=args.lo_certainty_th, peak_blur_sigma=args.peak_blur_sigma,
+                  acc_type=args.acc_type,debug=args.debug)
     shraml_uhl_peak_detector(**params)
 
