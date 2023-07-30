@@ -132,7 +132,7 @@ class SplitImageInBlock:
 
 
     def save_img_blocks(self):
-        cv2.imwrite(f"{self.output_dir}/img.png", self.img)
+        cv2.imwrite(f"{self.output_dir}/img_in.png", self.img)
         cv2.imwrite(f"{self.output_dir}/mask.png", self.mask)
         if self.debug:
             blocks_dir = Path(self.output_dir) / "l_blocks"
@@ -161,7 +161,7 @@ class LocalOrientationEstimation:
         :param l_blocks: list of image patches
         :param l_coordinates: list of top left coordinates of each block
         :param type: type of local orientation estimation
-        :param certainty_threshold:
+        :param certainty_threshold: certainty threshold for filtering lines with low certainty
         :param output_dir: debug output directory
         :param debug: debug flag
         """
@@ -186,7 +186,6 @@ class LocalOrientationEstimation:
             block = rgb2gray(block)
             f = np.fft.fft2(block)
             fshift = np.fft.fftshift(f)
-            magnitude_spectrum = np.abs(fshift)
             magnitude_spectrum = 20 * np.log(np.abs(fshift))
             l_fs_blocks.append(magnitude_spectrum)
 
@@ -652,12 +651,16 @@ class LocalOrientationEstimation:
         return [line for line in l_lo if line.certainty >= self.certainty_threshold]
     def run(self):
         """
-        Section 2.3 of Reference Paper
+        Section 2.3 of Reference Paper. Line 2 to 5 algorithm 2 MLbrief
         :return: list of lines of symmetry
         """
+        # Line 2
         fs_blocks = self.compute_fourier_spectrum(self.l_blocks)
+        # Line 3
         self.pre_fs_blocks = self.preprocess_fourier_spectrum(fs_blocks)
+        # Line 4
         l_lo = self.lo_linear_symmetry(self.pre_fs_blocks)
+        # Line 5
         self.generating_debug_images(l_lo, debug=self.debug)
         l_lo = self.filter_lo_by_certainty(l_lo)
         self.generating_debug_images(l_lo, name="filtered_lines", debug=False)
@@ -813,7 +816,7 @@ class PithDetector:
                  fft_peak_th=0.6, lo_method=LocalOrientationEstimation.pca, lo_certainty_th=0.5, acc_type=0,
                  peak_blur_sigma=5, debug=False, output_dir=None):
         """
-        Implementation of the pith detection algorithm described in Reference Paper
+        Implementation of the pith detection algorithm described in Reference Paper. Algorithm 1 in MLbrief
         :param img_in: input image
         :param mask: input background mask
         :param block_width_size: Pixel partition size in the width direction in order to get patches
@@ -826,76 +829,83 @@ class PithDetector:
         :param acc_type: type of accumulator to use
         :param peak_blur_sigma: sigma for peak blurring
         """
-        self.img = img_in
+        self.img_in = img_in
         self.mask = mask
         self.output_dir = output_dir
         Path(self.output_dir).mkdir(exist_ok=True, parents=True)
-        self.lo_fft_peak_th = fft_peak_th
-        self.lo_width_partition = block_width_size
-        self.lo_height_partition = block_height_size
-        self.lo_overlap = block_overlap
+        self.fft_peak_th = fft_peak_th
+        self.block_width_size = block_width_size
+        self.block_height_size = block_height_size
+        self.block_overlap = block_overlap
         self.debug = debug
         self.lo_method = lo_method
-        self.lo_certainty_threshold = lo_certainty_th
+        self.lo_certainty_th = lo_certainty_th
         self.acc_type = acc_type
         self.peak_blur_sigma = peak_blur_sigma
     def local_orientation_estimation(self, debug=True):
         """
-        Compute local orientation of the image.
-        :param debug:
+        Compute local orientation of the image. Algorithm 2 in MLbrief
+        :param img_in: input image
+        :param mask: input background mask
+        :param block_width_size: Pixel partition size in the width direction
+        :param block_height_size: Pixel partition size in the height direction
+        :param block_overlap: overlap between patches
+        :param
         :return:
         """
-        # 1.0 compute image regions
-        block_splitter = SplitImageInBlock(block_width_size=self.lo_width_partition,
-                                           block_height_size=self.lo_height_partition, block_overlap=self.lo_overlap,
-                                           mask=self.mask, img=self.img, output_dir=self.output_dir, debug=debug)
+        # 1.0 compute image regions. Line 1 in Algorithm 2
+        block_splitter = SplitImageInBlock(img=self.img_in, mask=self.mask, block_overlap=self.block_overlap,
+                                           block_width_size=self.block_width_size, block_height_size=self.block_height_size,
+                                           output_dir=self.output_dir, debug=debug)
         block_splitter.run()
         block_splitter.save_img_blocks()
         l_blocks = block_splitter.l_blocks
         l_coordinates = block_splitter.l_coordinates
 
-        # 2.0 compute local orientation of each region
+        # 2.0 compute local orientation of each region. From line 2 to 6 in Algorithm 2
         lo_dir = Path(self.output_dir) / 'local_orientation'
         if debug:
             lo_dir.mkdir(exist_ok=True, parents=True)
-        lo = LocalOrientationEstimation(img=self.img, mask=self.mask, l_blocks=l_blocks, l_coordinates=l_coordinates,
+        lo = LocalOrientationEstimation(img=self.img_in, mask=self.mask, l_blocks=l_blocks, l_coordinates=l_coordinates,
                                         output_dir=str(lo_dir), debug=debug, type = self.lo_method,
-                                        certainty_threshold=self.lo_certainty_threshold, fft_peak_th = self.lo_fft_peak_th )
+                                        certainty_threshold=self.lo_certainty_th, fft_peak_th = self.fft_peak_th)
         l_lo = lo.run()
 
         return l_lo # list of local orientation objects
     def accumulation_space(self, l_lo, acc_type, debug=True):
-        # 3.0 compute accumulation space
+        # 3.0 compute accumulation space. Section 2.3 in MLbrief
         as_dir = Path(self.output_dir) / 'accumulation_space'
         if debug:
             as_dir.mkdir(exist_ok=True, parents=True)
-        as_obj = AccumulationSpace(l_lo=l_lo, output_dir=str(as_dir), img = self.img, mask=self.mask, type=acc_type, debug=debug)
+        as_obj = AccumulationSpace(l_lo=l_lo, output_dir=str(as_dir), img = self.img_in, mask=self.mask, type=acc_type, debug=debug)
 
         return as_obj.run()
 
     def find_peak(self, m_accumulation_space, sigma = 3):
-
-        ################################################################################################################
+        # Section 2.4 in MLbrief
         ac_blur =  cv2.GaussianBlur(m_accumulation_space.astype(np.uint8), (sigma, sigma), 0) if sigma > 0 else m_accumulation_space
         # find max location
         max_val = ac_blur.max()
         yy, xx = np.where(ac_blur >= max_val)
         max_loc =(xx.mean().astype(int), yy.mean().astype(int))
         # draw circle
-        img = self.img.copy()
+        img = self.img_in.copy()
         for y,x in zip(yy,xx):
             img = cv2.circle(img, (np.round(x).astype(int),np.round(y).astype(int)), 2, Color.red, -1)
         img = cv2.circle(img, max_loc, 2, Color.blue, -1)
-        # save img
+        # save img_in
         cv2.imwrite(str(Path(self.output_dir) / 'peak.png'), img)
 
         return max_loc
     def run(self):
-        """Implementations of Block Area Selection - BAS algorithm described in Reference Paper"""
+        """Implementations of Block Area Selection - BAS algorithm described in Reference Paper.
+        Algorithm 1 in MLbrief"""
+        # Line 1
         l_lo = self.local_orientation_estimation(debug=self.debug)
+        # Line 2
         m_accumulation_space = self.accumulation_space(l_lo, self.acc_type, debug=self.debug)
+        # Line 3
         peak = self.find_peak(m_accumulation_space, self.peak_blur_sigma)
-
         return peak
 class AccumulationSpace:
 
