@@ -52,8 +52,7 @@ class PithDetector:
     def local_orientation(self, debug=True):
         # 0.0 Create debug directory
         lo_dir = Path(self.output_dir) / 'local_orientation'
-        if debug:
-            lo_dir.mkdir(exist_ok=True, parents=True)
+        lo_dir.mkdir(exist_ok=True, parents=True)
 
         # 1.0 Compute local orientation. Section 2.1 in Paper
         l_lo = local_orientation_estimation(img_in = self.img_in, mask = self.mask, block_overlap = self.block_overlap,
