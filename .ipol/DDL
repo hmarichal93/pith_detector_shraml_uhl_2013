@@ -50,9 +50,9 @@
             "type": "range",
             "values": {
                 "default": 20.0,
-                "max": 50,
-                "min": 4,
-                "step": 1
+                "max": 200,
+                "min": 10,
+                "step": 10
             },
             "visible": "params.options=='1'"
         },
@@ -63,9 +63,9 @@
             "type": "range",
             "values": {
                 "default": 20.0,
-                "max": 50,
-                "min": 4,
-                "step": 1
+                "max": 200,
+                "min": 10,
+                "step": 10
             },
             "visible": "params.options=='1'"
         },
