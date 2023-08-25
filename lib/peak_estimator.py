@@ -23,7 +23,7 @@ def find_peak( m_accumulation_space: np.array, img_in: np.array, output_dir: str
     :param sigma: Gaussian kernel size
     :return: peak pixel location
     """
-    # Section 2.4 in MLbrief
+    # Section 2.4
     ac_blur =  cv2.GaussianBlur(m_accumulation_space.astype(np.uint8), (sigma, sigma), 0) if sigma > 0 else m_accumulation_space
     # find max location
     max_val = ac_blur.max()

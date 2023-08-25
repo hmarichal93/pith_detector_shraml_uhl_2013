@@ -38,6 +38,7 @@ class Line:
 
     def compute_line_coefficients(self, p1, p2):
         """
+        Given two points, compute the coefficients of the line equation
         a*x+b*y+c=0
         """
         x1, y1 = p1.ravel()
@@ -65,7 +66,7 @@ class Line:
         """
         Compute the intersection between two lines
         :param line:
-        :return:
+        :return: (x,y) coordinates of the intersection
         """
         a1, b1, c1 = self.compute_line_coefficients(self.p1, self.p2)
         a2, b2, c2 = line.compute_line_coefficients(line.p1, line.p2)

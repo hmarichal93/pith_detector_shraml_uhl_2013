@@ -71,12 +71,12 @@ if __name__=="__main__":
 
     #method parameters
     parser.add_argument('--new_shape', type=int, default=1000, help='new shape')
-    parser.add_argument('--fft_peak_th', type=float, default=0.8, help='fourier transform peak threshold')
     parser.add_argument('--block_width_size', type=int, default=100, help='width partition size (px)')
     parser.add_argument('--block_height_size', type=int, default=100, help='height partition size (px)')
     parser.add_argument('--block_overlap', type=float, default=0.1, help='block overlapping')
     parser.add_argument('--lo_method', type=str, default='pca', help='lo method')
     parser.add_argument('--lo_certainty_th', type=float, default=0.9, help='lo certainty threshold')
+    parser.add_argument('--fft_peak_th', type=float, default=0.8, help='fourier transform peak threshold')
     parser.add_argument('--peak_blur_sigma', type=int, default=3, help='peak blur sigma')
     parser.add_argument('--acc_type', type=int, default=1, help='accumulation type')
 

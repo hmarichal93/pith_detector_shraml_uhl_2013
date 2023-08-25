@@ -89,28 +89,52 @@ class AccumulationSpace:
         plt.close()
         return
 
+    def lines_pass_through_accumulation(self, l_lo):
+        """
+        Accumulate lines in the accumulation space. Every pixel that is in a line is incremented by 1
+        :param l_lo: list of lines
+        :return: accumulation space with the lines
+        """
+        accumulation_space = np.zeros(self.img.shape[:2], dtype=int)
+
+        for i, lo_i in enumerate(l_lo):
+            mask = np.zeros(accumulation_space.shape[:2], dtype=np.uint8)
+            mask = lo_i.img_draw_line(mask, Color.gray_white, thickness=1)
+            accumulation_space[mask == Color.gray_white] += 1
+
+        return accumulation_space
+
+    def lines_intersection_accumulation(self, l_lo):
+        """
+        Compute intersection between lines and accumulate them in the accumulation space.
+        Acummulation space has same size (width and height) as the image
+        :param l_lo: list of lines
+        :return: accumulation space with the intersection of lines
+        """
+        accumulation_space = np.zeros(self.img.shape[:2], dtype=int)
+        for i, lo_i in enumerate(l_lo):
+            for j, lo_j in enumerate(l_lo):
+                if i == j:
+                    continue
+                intersection = self.compute_intersection(lo_i, lo_j, i, j)
+                if intersection is None:
+                    continue
+                accumulation_space[intersection] += 1
+
+        return accumulation_space
+
     def run(self):
         """
         Compute accumulation space
-        :return: accumulation space
+        :return: accumulation space matrix
         """
-        accumulation_space = np.zeros(self.img.shape[:2], dtype=int)
-        if self.type == 0:
-            for i,lo_i in enumerate(self.l_lo):
-                mask = np.zeros(self.img.shape[:2], dtype=np.uint8)
-                mask = lo_i.img_draw_line(mask, Color.gray_white,thickness=1)
-                accumulation_space[mask == Color.gray_white] += 1
 
+        if self.type > 0:
+            accumulation_space = self.lines_intersection_accumulation(self.l_lo)
         else:
-            for i, lo_i in enumerate(self.l_lo):
-                for j, lo_j in enumerate(self.l_lo):
-                    if i == j:
-                        continue
-                    intersection = self.compute_intersection(lo_i, lo_j, i, j)
-                    if intersection is None:
-                        continue
-                    accumulation_space[intersection] += 1
+            accumulation_space = self.lines_pass_through_accumulation(self.l_lo)
 
+        ######################### Normalize accumulation space for visualization only
         normalized_accumulation_space = ((accumulation_space / accumulation_space.max())*255)
         normalized_accumulation_space = np.where(normalized_accumulation_space > 255, 255,
                                                  normalized_accumulation_space).astype(np.uint8)
@@ -118,5 +142,5 @@ class AccumulationSpace:
 
         if self.debug:
             self.debug_accumulation_space(accumulation_space)
-
+        ############################################################################################################
         return accumulation_space
