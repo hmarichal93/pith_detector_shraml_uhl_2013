@@ -25,15 +25,16 @@ class PithDetector:
         Implementation of the pith detection algorithm described in Reference Paper. Algorithm 1 in paper
         :param img_in: input image
         :param mask: input background mask
+        :param block_overlap: overlap between patches
         :param block_width_size: Patches (blocks) width size
         :param block_height_size: Patches (blocks) height size
-        :param block_overlap: overlap between patches
-        :param output_dir: output directory
-        :param debug: debug flag
+        :param fft_peak_th: FFT frequency filter threshold
         :param lo_method: method to use for local orientation estimation
         :param lo_certainty_th: threshold for local orientation estimation
         :param acc_type: type of accumulator to use
         :param peak_blur_sigma: sigma for peak blurring. Guassian kernel size
+        :param output_dir: output directory
+        :param debug: debug flag
         """
         self.img_in = img_in
         self.mask = mask
@@ -49,22 +50,36 @@ class PithDetector:
         self.acc_type = acc_type
         self.peak_blur_sigma = peak_blur_sigma
 
-    def local_orientation(self, debug=True):
+    def local_orientation(self, img_in, mask, block_overlap, block_width_size, block_height_size, fft_peak_th,
+                          lo_method, lo_certainty_th, debug=True):
+        """
+        Create debug local orientation directory and run local orientation estimation algorithm (Algorithm 2)
+        :param img_in: rgb input image
+        :param mask: background mask image
+        :param block_overlap: overlapping between blocks
+        :param block_width_size: block width size (px)
+        :param block_height_size: block height size (px)
+        :param fft_peak_th: FFT frequency filter threshold
+        :param lo_method: local orientation method (pca, peak, lsq, wlsq)
+        :param lo_certainty_th: local orientation certainty threshold
+        :param debug: debug flag
+        :return: List of lines of local orientation
+        """
         # 0.0 Create debug directory
         lo_dir = Path(self.output_dir) / 'local_orientation'
         lo_dir.mkdir(exist_ok=True, parents=True)
 
-        # 1.0 Compute local orientation. Section 2.1 in Paper
-        l_lo = local_orientation_estimation(img_in = self.img_in, mask = self.mask, block_overlap = self.block_overlap,
-                                     block_width_size = self.block_width_size,
-                                     block_height_size = self.block_height_size, lo_method = self.lo_method,
-                                     lo_certainty_th = self.lo_certainty_th, fft_peak_th = self.fft_peak_th,
+        # 1.0 Compute local orientation. Algorithm 2 in Paper.
+        l_lo = local_orientation_estimation(img_in = img_in, mask = mask, block_overlap = block_overlap,
+                                     block_width_size = block_width_size,
+                                     block_height_size = block_height_size, lo_method = lo_method,
+                                     lo_certainty_th = lo_certainty_th, fft_peak_th = fft_peak_th,
                                      output_dir = str(lo_dir), debug = debug)
 
         return l_lo
 
     def accumulation_space(self, l_lo, acc_type, debug=True):
-        # 3.0 compute accumulation space. Section 2.3 in Paper
+        # 3.0 Compute accumulation space. Section 2.3 in Paper. Algorithm 3 in Paper
         as_dir = Path(self.output_dir) / 'accumulation_space'
         if debug:
             as_dir.mkdir(exist_ok=True, parents=True)
@@ -84,7 +99,9 @@ class PithDetector:
         """Implementations of Block Area Selection - BAS algorithm described in Reference Paper.
         Algorithm 1 in Paper"""
         # Line 1
-        l_lo = self.local_orientation(debug=self.debug)
+        l_lo = self.local_orientation(self.img_in, self.mask, self.block_overlap, self.block_width_size,
+                        self.block_height_size, self.fft_peak_th,  self.lo_method,  self.lo_certainty_th,
+                        debug=self.debug)
 
         # Line 2
         m_accumulation_space = self.accumulation_space(l_lo, self.acc_type, debug=self.debug)

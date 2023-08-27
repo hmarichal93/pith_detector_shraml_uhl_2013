@@ -26,7 +26,7 @@ class AccumulationSpace:
 
     def __init__(self, l_lo, output_dir, img, mask, type=0, debug=True):
         """
-        Implementation of the accumulation space. Two different implementations are defined depending of the value of
+        Implementation of the accumulation space (algorithm 3 in paper). Two different implementations are defined depending of the value of
         type parameter. If type == 0, It is a matrix where each element is the number of lines that pass by
         that pixel. If type == 1, it is a matrix where each element is the sum of line intersection at that pixel.
         :param l_lo: list of lines
@@ -125,7 +125,7 @@ class AccumulationSpace:
 
     def run(self):
         """
-        Compute accumulation space
+        Compute accumulation space. Algorithm 3 in paper
         :return: accumulation space matrix
         """
 
