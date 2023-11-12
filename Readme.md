@@ -10,7 +10,7 @@ UruDendro ImageSet: [UruDendro][link_urudendro].
 
 
 Version 1.0
-Last update: 14/08/2023
+Last update: 27/08/2023
 
 Authors: 
 -	Henry Marichal, henry.marichal@fing.edu.uy
