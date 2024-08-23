@@ -1,7 +1,7 @@
 {
     "general": {
-        "demo_title": "MLBRIEF: PITH ESTIMATION ON ROUGH LOG END IMAGES USING LOCALFOURIER SPECTRUM ANALYSIS",
-        "description": "",
+        "demo_title": "Implementation and discussion of the 'Pith Estimation on Rough Log End Images using Local Fourier Spectrum Analysis' method",
+        "description": "Detect pith location over wood cross section images. Image background must be colored in white",
         "input_description": "",
         "requirements": "docker"
     },
@@ -45,27 +45,27 @@
         },
         {
             "id": "width_partition",
-            "label": "Image width partitions. Higher value implies lower image patches width",
+            "label": "Block width size",
             "comments": "Block Selector",
             "type": "range",
             "values": {
                 "default": 20.0,
-                "max": 50,
-                "min": 4,
-                "step": 1
+                "max": 200,
+                "min": 10,
+                "step": 10
             },
             "visible": "params.options=='1'"
         },
         {
             "id": "height_partition",
-            "label": "Image height partitions. Higher value implies lower image patches height",
+            "label": "Block height size",
             "comments": "Block Selector",
             "type": "range",
             "values": {
                 "default": 20.0,
-                "max": 50,
-                "min": 4,
-                "step": 1
+                "max": 200,
+                "min": 10,
+                "step": 10
             },
             "visible": "params.options=='1'"
         },
@@ -75,7 +75,7 @@
             "comments": "Block Selector",
             "type": "range",
             "values": {
-                "default": 0.2,
+                "default": 0.5,
                 "max": 1,
                 "min": 0,
                 "step": 0.05
@@ -115,7 +115,7 @@
             "comments": "Local Orientation",
             "type": "range",
             "values": {
-                "default": 0.7,
+                "default": 0.85,
                 "max": 1,
                 "min": 0,
                 "step": 0.05
@@ -151,23 +151,29 @@
     "results": [
         {
             "contents": {
+                "Input": {
+                    "img": "resized.png"
+                },
                 "Output": {
                     "img": "peak.png"
                 },
                 "Block partitions": {
-                    "img": "img_blocks_all_lines.png"
+                    "img": "local_orientation/img_blocks_all_lines.png"
                 },
                 "LO lines": {
-                    "img": "img_all_lines.png"
+                    "img": "local_orientation/img_all_lines.png"
                 },
                 "Block filtered partitions": {
-                    "img": "img_blocks_filtered_lines.png"
+                    "img": "local_orientation/img_blocks_filtered_lines.png"
                 },
                 "LO filtered lines": {
-                    "img": "img_filtered_lines.png"
+                    "img": "local_orientation/img_filtered_lines.png"
                 },
                 "Background Mask": {
-                    "img": "mask.png"
+                    "img": "local_orientation/mask.png"
+                },
+                "Accumulator Space": {
+                    "img": "accumulator.png"
                 }
             },
             "type": "gallery",
@@ -189,12 +195,13 @@
     "archive": {
         "enable_reconstruct": true,
         "files": {
-            "input_0.png": "Input",
+            "resized.png": "Input",
             "peak.png": "Output",
             "img_blocks_all_lines.png": "Block partitions",
             "img_all_lines.png": "LO lines",
             "img_blocks_filtered_lines.png": "Block filtered partitions",
             "img_filtered_lines.png": "LO filtered lines",
+            "accumulator.png": "Accumulator Space",
             "mask.png": "Background Masks"
 
         },

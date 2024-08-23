@@ -1,3 +1,14 @@
+"""
+Copyright (c) 2023 Author(s) Henry Marichal (hmarichal93@gmail.com)
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
 import numpy as np
 from PIL import Image
 import cv2
@@ -25,6 +36,7 @@ class Color:
     def get_next_color(self):
         self.idx = (self.idx + 1 ) % len(self.list)
         return self.list[self.idx]
+
 
 class Drawing:
 
@@ -65,10 +77,6 @@ class Drawing:
 
         return img
 
-
-
-
-
     @staticmethod
     def curve(curva, img, color=(0, 255, 0), thickness = 1):
         y, x = curva.xy
@@ -90,8 +98,6 @@ class Drawing:
                             isClosed, color, thickness)
 
         return img
-
-
 
     @staticmethod
     def radii(rayo, img, color=(255, 0, 0), debug=False, thickness=1):
@@ -116,10 +122,11 @@ def resize_image_using_pil_lib(im_in: np.array, height_output: object, width_out
     pil_img = Image.fromarray(im_in)
     # Image.ANTIALIAS is deprecated, PIL recommends using Reampling.LANCZOS
     flag = Image.ANTIALIAS
-    # flag = Image.Resampling.LANCZOS
+    #flag = Image.Resampling.LANCZOS
     pil_img = pil_img.resize((height_output, width_output), flag)
     im_r = np.array(pil_img)
     return im_r
+
 def change_background_to_value(im_in, mask, value=255):
     """
     Change background intensity to white.
@@ -134,6 +141,7 @@ def change_background_to_value(im_in, mask, value=255):
 
 def rgb2gray(img_r):
     return cv2.cvtColor(img_r, cv2.COLOR_BGR2GRAY)
+
 def change_background_intensity_to_mean(im_in):
     """
     Change background intensity to mean intensity
@@ -145,10 +153,12 @@ def change_background_intensity_to_mean(im_in):
     mask = np.where(im_in == 255, 1, 0)
     im_eq = change_background_to_value(im_eq, mask, np.mean(im_in[mask == 0]))
     return im_eq, mask
+
 def equalize_image_using_clahe(img_eq):
     clahe = cv2.createCLAHE(clipLimit=10)
     img_eq = clahe.apply(img_eq)
     return img_eq
+
 def equalize(im_g):
     """
     Equalize image using CLAHE algorithm. Implements Algorithm 4 in the paper
