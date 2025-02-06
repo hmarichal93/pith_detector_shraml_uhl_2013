@@ -1,8 +1,8 @@
 # Implementation and discussion of the "Pith Estimation on Rough Log End Images using Local Fourier Spectrum Analysis" method
 
-Repository for the IPOL paper "Implementation and discussion of the "Pith Estimation on Rough Log End Images using Local Fourier Spectrum Analysis" method". Submitted on 
+Repository for the manuscript "Implementation and discussion of the "Pith Estimation on Rough Log End Images using Local Fourier Spectrum Analysis" method".
 
-IPol Demo: [IPOL](https://ipolcore.ipol.im/demo/clientApp/demo.html?id=77777000472)
+Demo: [IPOL](https://ipolcore.ipol.im/demo/clientApp/demo.html?id=77777000472)
 
 UruDendro ImageSet: [UruDendro][link_urudendro].
 
